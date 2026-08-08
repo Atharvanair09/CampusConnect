@@ -1,4 +1,3 @@
-import { SiteShell } from "@/components/site/SiteShell";
 import { PredictiveTurnout } from "@/components/events/PredictiveTurnout";
 // import { LiveQA } from "@/components/events/LiveQA";
 import { useEventViewerCount } from "@/hooks/useEventViewerCount";
@@ -11,6 +10,7 @@ import { LazyMotion, m } from "framer-motion";
 import { Helmet } from "react-helmet-async";
 import { uploadFileWithProgress } from "@/lib/supabase/uploadFileWithProgress";
 import { useCommand } from "@/components/CommandPaletteProvider";
+import { getRsvpIdempotencyKey, clearRsvpIdempotencyKey } from "@/lib/rsvpIdempotency";
 import { TableOfContents } from "@/components/events/TableOfContents";
 import { buildOpenGraphTags } from "@/lib/seo/eventMeta";
 import { NotFound } from "@/components/NotFound";
@@ -812,6 +812,8 @@ export default function EventDetailsPage() {
         return;
       }
 
+      const idempotencyKey = getRsvpIdempotencyKey(eventId);
+
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -820,10 +822,12 @@ export default function EventDetailsPage() {
         body: { eventId, hasRsvpd, captchaToken },
         headers: {
           Authorization: `Bearer ${session?.access_token}`,
+          "Idempotency-Key": idempotencyKey,
         },
       });
 
       if (error) throw error;
+      clearRsvpIdempotencyKey(eventId);
     },
     onMutate: async ({ hasRsvpd }) => {
       // Snapshot the previous value
@@ -1379,7 +1383,7 @@ export default function EventDetailsPage() {
         <meta name="twitter:description" content={og.ogDescription} />
         {og.ogImage && <meta name="twitter:image" content={og.ogImage} />}
       </Helmet>
-      <SiteShell>
+      <>
         {/* Hero Section */}
         <section className="relative w-full overflow-hidden border-b-2 border-black bg-peach/30">
           {(event as any).banner_url ? (
@@ -2568,7 +2572,7 @@ export default function EventDetailsPage() {
             </Button>
           )}
         </div>
-      </SiteShell>
+      </>
       {/* RSVP Cancel Confirmation Modal */}
       <ConfirmModal
         open={confirmOpen}
